@@ -14,6 +14,43 @@
 
 ---
 
+a.
+
+- The 4 classes that I included were:
+  - Pet, needs a name, species, age, owner name, condition, list of tasks in **Init**.
+    - **Methods: **
+      - add_task(task): Add a task to this pet
+      - remove_task (task): Remove a task
+      - edit_task (task, duration, priority): Looking through current list of tasks, if there is a match, can modify how long the task takes or its priority
+      - (idea is that if the pet gets older or has a change in health condition, some tasks may be modified or removed) .
+  - Owner, needs a name, time available, preferences/constraints in **Init**.
+    - Owner ◆——— Pet (the idea is one owner could potentially own multiple pets).
+      - **Methods: **
+        - Register_pet(pet): Add pet to owner's list.
+        - Remove_pet(pet): Removes pet from list. Maybe deceased, or using different services.
+  - Task, needs a name, duration, priority, category (walk, feed, give medication, wash, etc).
+    - Pet ◆——— Task (tasks belong to a pet)
+      - ** Methods: **
+        - **Init**: Initializes the name, duration, priority and category.
+  - Scheduler, given the owner, a list of pet tasks, applies constraints (based on preferences and condition), then produces a plan output in **Init**.
+    - Scheduler - - -> Owner
+    - Scheduler - - -> Pet
+      - ** Methods: **
+        - generate_daily_plan(self, owner: Owner, pet: Pet) -> list:
+        - \_is_feasible(self, task: Task, pet: Pet) -> bool: Helper function
+        - \_fit_to_time(self, tasks: list, time_available: int) -> list: Helper function
+- The core actions (at least three) I came up with initially are:
+  - Register a pet. This should be a function under owner where they append a pet object to a list.
+  - Adding a task. This function will belong on the "Pet" class. The caller creates the task first, then passes in its name, duration, priority, category to the pets' personal list.
+  - Generating a daily plan: Look at the owner's preferences/constraints, the pet's condition, priority to come up with a finalized schedule.
+
+b.
+
+- My design originally had 5 classes, with an additional daily plan. However, I decided against creating a whole other class when my Scheduler class could just as easily have a method to return the daily plan list.
+-
+
+-
+
 ## 2. Scheduling Logic and Tradeoffs
 
 **a. Constraints and priorities**
