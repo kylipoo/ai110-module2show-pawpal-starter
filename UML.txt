@@ -1,0 +1,40 @@
++------------------+
+|    Scheduler     |
++------------------+
+|                  |
++------------------+
+| generate_daily() |- - -> Owner
+| _is_feasible()   |- - -> Pet
+| _fit_to_time()   |
++------------------+
+
+
+
+
++------------------+       +------------------+
+|      Owner       |       |       Pet        |
++------------------+       +------------------+
+| name             |       | name             |
+| time_available   |       | species          |
+| preferences      | 1◆──N | age              |
+| pets             |       | owner_name       |
++------------------+       | condition        |
+| register_pet()   |       | tasks            |
+| remove_pet()     |       +------------------+
++------------------+       | add_task()       |
+                           | remove_task()    |
+                           | edit_task()      |
+                           +------------------+
+                                   | 1
+                                   ◆
+                                   | N
+                           +------------------+
+                           |      Task        |
+                           +------------------+
+                           | name             |
+                           | duration         |
+                           | priority         |
+                           | category         |
+                           +------------------+
+
+
