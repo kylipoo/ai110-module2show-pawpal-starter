@@ -28,15 +28,16 @@ a.
       - **Methods: **
         - Register_pet(pet): Add pet to owner's list.
         - Remove_pet(pet): Removes pet from list. Maybe deceased, or using different services.
-  - Task, needs a name, duration, priority, category (walk, feed, give medication, wash, etc).
+  - Task, needs a name, duration, priority, category (walk, feed, give medication, wash, etc), frequency, completion status.
     - Pet ◆——— Task (tasks belong to a pet)
       - ** Methods: **
         - **Init**: Initializes the name, duration, priority and category.
+        - Mark_complete(): Indicates the task is done.
   - Scheduler, given the owner, a list of pet tasks, applies constraints (based on preferences and condition), then produces a plan output in **Init**.
     - Scheduler - - -> Owner
     - Scheduler - - -> Pet
       - ** Methods: **
-        - generate_daily_plan(self, owner: Owner, pet: Pet) -> list:
+        - generate_daily_plan(self, owner: Owner) -> list:
         - \_is_feasible(self, task: Task, pet: Pet) -> bool: Helper function
         - \_fit_to_time(self, tasks: list, time_available: int) -> list: Helper function
 - The core actions (at least three) I came up with initially are:
@@ -48,8 +49,6 @@ a.
 b.
 
 - My design originally had 5 classes, with an additional daily plan. However, I decided against creating a whole other class when my Scheduler class could just as easily have a method to return the daily plan list.
-- I made a trade-off:
-  - The Generate_daily_plan() method originally only took in the owner according to Claude's suggestions, but I proposed to take in both owner and pet because it would give more context for what tasks to do and in what order for a pet.
 
 ## 2. Scheduling Logic and Tradeoffs
 
@@ -69,9 +68,10 @@ b.
 
 ---
 
-- I had a previous draft where the scheduler would cover all pets (again, refer to the part generate_daily_plan() only took in an owner parameter), but by adding in pet as a parameter, it means that the daily_plan is only generated for an individual pet.
-- A potential issue could be having to be mindful and differentiate which plan generated for a pet is most up to date. In addition, time budgeting will need to be per-pet instead of global. If the owner has 60 minutes across 3 pets, then he'll need to split it up. This isn't necessarily a problem, but it also brings to mind a potential edge case of what if the owner used up all their time for 2 pets, need to account for when no time left for last pet.
-- A) Not every pet has the same daily schedule, for example the owner might have a dog, cat, parakeet, all of which have different tasks to look after. B) It's more flexible even for individual pets. What if the dog gets sick and is in recovery? A plan that involves walking is not applicable then. ALSO, while the time available will now need to be split up across how many pets the owner has, it has another benefit of flexibility since maybe one day a pet will need more time than typical for tasks. Like again, being sick.
+- The scheduler is sorted based on priority and greedily picks tasks until the time runs out. It doesn't try EVERY OTHER combination to maximize how many tasks fit.
+- The trade-off is reasonable because a pet care app should respect the owner's stated priorities above all else. If they marked something as priority 1, it should happen even if it takes longer than lower-priority tasks. The alternative would have been a knapsack style optimizier which would have skipped high-priority tasks which would be problematic in situations like what if a pet requires a medication.
+- A (design) trade off is tasks are specific to pets rather than existing in a shared pool.
+- Reasonable because pet care tasks are inherently pet-specific. You can't give dog medication to a cat, or walk a parakeet in place of a dog. Each pet is different and has their own needs.
 
 ## 3. AI Collaboration
 
@@ -83,6 +83,7 @@ b.
 ---
 
 - I used AI tools for design brainstorming (helping determine what classes I would need and what their attributes/methods are).
+- Prompts/questions I felt were most helpful were when I had the AI refer to my reflection responses, that way it would have the context what should be implemented.
 
 **b. Judgment and verification**
 
@@ -90,6 +91,10 @@ b.
 - How did you evaluate or verify what the AI suggested?
 
 ---
+
+- When I visited Phase 2 of the project requirements, I noticed that there should be a way for the owner to view all the tasks for pets. I revisited my earlier project designs and created a get_all_tasks() method which would take in a pet name, and then it would check the owner's own pet list and see if the name exists, and if so, fetch the tasks.
+- I noticed that the class function didn't seem to account for pet's condition. I changed pet's condition variable to be a list of strings.
+- Added in scheduler to skip tasks given a certain condition, but if there is a task like say "sick" then medication should absolutely be done.
 
 ## 4. Testing and Verification
 

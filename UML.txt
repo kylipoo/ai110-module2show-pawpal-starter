@@ -1,7 +1,7 @@
 +------------------+
 |    Scheduler     |
 +------------------+
-|                  |
+| remaining_time   |
 +------------------+
 | generate_daily() |- - -> Owner
 | _is_feasible()   |- - -> Pet
@@ -24,6 +24,7 @@
 +------------------+       | add_task()       |
                            | remove_task()    |
                            | edit_task()      |
+                           | get_all_tasks()  |
                            +------------------+
                                    | 1
                                    ◆
@@ -35,6 +36,8 @@
                            | duration         |
                            | priority         |
                            | category         |
+                           |frequency         |
+                           | status           |
                            +------------------+
 
 
