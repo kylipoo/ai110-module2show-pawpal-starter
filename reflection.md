@@ -17,7 +17,7 @@
 a.
 
 - The 4 classes that I included were:
-  - Pet, needs a name, species, age, owner name, condition, list of tasks in **Init**.
+  - Pet, needs a name, species, age, owner_name, condition, list of tasks in **Init**.
     - **Methods: **
       - add_task(task): Add a task to this pet
       - remove_task (task): Remove a task
