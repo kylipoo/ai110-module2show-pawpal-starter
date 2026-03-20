@@ -1,6 +1,8 @@
 import streamlit as st
 from pawpal_system import Owner, Pet, Task, Scheduler
 
+CONDITION_OPTIONS = ["healthy", "injured", "sick", "elderly", "pregnant"]
+
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 st.title("🐾 PawPal+")
 
@@ -36,9 +38,19 @@ with st.sidebar:
         st.subheader("Select Owner")
         for i, o in enumerate(owners):
             label = f"{o.name} ({len(o.pets)} pet{'s' if len(o.pets) != 1 else ''})"
-            if st.button(label, key=f"owner_btn_{i}"):
-                st.session_state.selected_owner_index = i
-                st.rerun()
+            col_select, col_remove = st.columns([3, 1])
+            with col_select:
+                if st.button(label, key=f"owner_btn_{i}"):
+                    st.session_state.selected_owner_index = i
+                    st.rerun()
+            with col_remove:
+                if st.button("✕", key=f"owner_remove_{i}", help=f"Remove {o.name}"):
+                    owners.pop(i)
+                    if st.session_state.selected_owner_index == i:
+                        st.session_state.selected_owner_index = None
+                    elif st.session_state.selected_owner_index and st.session_state.selected_owner_index > i:
+                        st.session_state.selected_owner_index -= 1
+                    st.rerun()
     else:
         st.info("No owners yet. Create one above.")
 
@@ -95,10 +107,23 @@ with st.expander("Add a Pet"):
         with p_col3:
             pet_age = st.number_input("Age", min_value=0, max_value=50, value=1)
 
+        pet_conditions = st.multiselect(
+            "Conditions",
+            CONDITION_OPTIONS,
+            default=["healthy"],
+            help="Conditions affect which tasks are scheduled and their priority.",
+        )
+
         submitted = st.form_submit_button("Add Pet")
         if submitted:
             if pet_name.strip():
-                new_pet = Pet(name=pet_name.strip(), species=pet_species, age=int(pet_age), owner_name=owner.name)
+                new_pet = Pet(
+                    name=pet_name.strip(),
+                    species=pet_species,
+                    age=int(pet_age),
+                    owner_name=owner.name,
+                    condition=pet_conditions or ["healthy"],
+                )
                 owner.register_pet(new_pet)
                 st.rerun()
             else:
@@ -113,7 +138,52 @@ pet_names = [p.name for p in owner.pets]
 selected_pet_name = st.radio("Select pet", pet_names, horizontal=True, key=f"pet_radio_{idx}")
 pet: Pet = next(p for p in owner.pets if p.name == selected_pet_name)
 
-st.markdown(f"**{pet.name}** — {pet.species}, age {pet.age}  |  Conditions: {', '.join(pet.condition)}")
+pet_key = f"editing_pet_{idx}_{pet.name}"
+
+col_petinfo, col_petedit = st.columns([4, 1])
+with col_petinfo:
+    st.markdown(f"**{pet.name}** — {pet.species}, age {pet.age}  |  Conditions: {', '.join(pet.condition)}")
+with col_petedit:
+    if st.button("Edit Pet"):
+        st.session_state[pet_key] = True
+
+if st.session_state.get(pet_key):
+    with st.form(f"edit_pet_form_{idx}_{pet.name}"):
+        e_col1, e_col2, e_col3 = st.columns(3)
+        with e_col1:
+            updated_pet_name = st.text_input("Name", value=pet.name)
+        with e_col2:
+            updated_species = st.selectbox(
+                "Species", ["dog", "cat", "bird", "rabbit", "other"],
+                index=["dog", "cat", "bird", "rabbit", "other"].index(pet.species)
+                      if pet.species in ["dog", "cat", "bird", "rabbit", "other"] else 4,
+            )
+        with e_col3:
+            updated_age = st.number_input("Age", min_value=0, max_value=50, value=pet.age)
+
+        updated_conditions = st.multiselect(
+            "Conditions",
+            CONDITION_OPTIONS,
+            default=[c for c in pet.condition if c in CONDITION_OPTIONS],
+            help="Conditions block certain task categories and affect scheduling priority.",
+        )
+
+        e_save, e_cancel = st.columns(2)
+        with e_save:
+            save_pet = st.form_submit_button("Save")
+        with e_cancel:
+            cancel_pet = st.form_submit_button("Cancel")
+
+    if save_pet:
+        pet.name = updated_pet_name.strip() or pet.name
+        pet.species = updated_species
+        pet.age = int(updated_age)
+        pet.condition = updated_conditions or ["healthy"]
+        st.session_state[pet_key] = False
+        st.rerun()
+    if cancel_pet:
+        st.session_state[pet_key] = False
+        st.rerun()
 
 st.divider()
 
@@ -175,11 +245,18 @@ st.divider()
 st.subheader("Build Schedule")
 st.caption(f"Fits tasks for all of {owner.name}'s pets within {owner.time_available} min.")
 
-if st.button("Generate schedule"):
-    scheduler = Scheduler()
-    plan = scheduler.generate_daily_plan(owner)
-    if plan:
-        st.success(f"Scheduled {len(plan)} task(s) — {scheduler.remaining_time} min remaining.")
-        st.table(plan)
-    else:
-        st.warning("No tasks could be scheduled. Add tasks to a pet first.")
+col_gen, col_reset = st.columns([3, 1])
+with col_gen:
+    if st.button("Generate schedule", use_container_width=True):
+        scheduler = Scheduler()
+        plan = scheduler.generate_daily_plan(owner)
+        if plan:
+            st.success(f"Scheduled {len(plan)} task(s) — {scheduler.remaining_time} min remaining.")
+            st.table(plan)
+        else:
+            st.warning("No tasks could be scheduled. Add tasks to a pet first.")
+with col_reset:
+    if st.button("Reset all tasks", use_container_width=True, type="secondary"):
+        Scheduler().reset_tasks(owner)
+        st.success(f"All tasks cleared for {owner.name}'s pets.")
+        st.rerun()

@@ -95,8 +95,8 @@ class Scheduler:
             if not task.completed and self._is_feasible(task, pet, owner)
         ]
 
-        # Sort by priority ascending (1 = highest priority first)
-        candidates.sort(key=lambda pair: pair[1].priority)
+        # Sort by adjusted priority (conditions can boost certain task categories)
+        candidates.sort(key=lambda pair: self._adjusted_priority(pair[1], pair[0]))
 
         scheduled = self._fit_to_time(candidates, owner.time_available)
 
@@ -113,10 +113,18 @@ class Scheduler:
             })
         return plan
 
+    # Maps each condition to the task categories it blocks
+    CONDITION_BLOCKS: dict[str, list[str]] = {
+        "injured":  ["walk"],
+        "sick":     ["walk", "play"],
+        "elderly":  ["play"],
+        "pregnant": ["walk", "play"],
+    }
+
     def _is_feasible(self, task: Task, pet: Pet, owner: Owner) -> bool:
         """
-        Returns False if the owner's preferences exclude this task or pet condition
-        makes it inappropriate.
+        Returns False if the owner's preferences exclude this task, or a pet
+        condition blocks it.
         """
         avoid = owner.preferences.get("avoid_category")
         if avoid and task.category == avoid:
@@ -126,11 +134,26 @@ class Scheduler:
         if max_priority and task.priority > max_priority:
             return False
 
-        # Example condition rule: skip walks for injured pets
-        if "injured" in pet.condition and task.category == "walk":
-            return False
+        for condition in pet.condition:
+            blocked = self.CONDITION_BLOCKS.get(condition, [])
+            if task.category in blocked:
+                return False
 
         return True
+
+    def _adjusted_priority(self, task: Task, pet: Pet) -> int:
+        """
+        Returns an effective priority for sorting. Medication tasks are boosted
+        to priority 1 when the pet is sick, so they always schedule first.
+        """
+        if "sick" in pet.condition and task.category == "medication":
+            return 1
+        return task.priority
+
+    def reset_tasks(self, owner: Owner):
+        """Remove all tasks from every pet belonging to this owner."""
+        for pet in owner.pets:
+            pet.tasks.clear()
 
     def _fit_to_time(self, candidates: list[tuple[Pet, Task]], time_available: int) -> list[tuple[Pet, Task]]:
         """
