@@ -71,6 +71,7 @@ b.
 - The scheduler is sorted based on priority and greedily picks tasks until the time runs out. It doesn't try EVERY OTHER combination to maximize how many tasks fit.
 - The trade-off is reasonable because a pet care app should respect the owner's stated priorities above all else. If they marked something as priority 1, it should happen even if it takes longer than lower-priority tasks. The alternative would have been a knapsack style optimizier which would have skipped high-priority tasks which would be problematic in situations like what if a pet requires a medication.
 - A (design) trade off is tasks are specific to pets rather than existing in a shared pool.
+- A drawback is when I run the sort by time algorithm is that the generate daily plan method is slower due to having to compare the times to each of the other pets' individual tasks to ensure correct order.
 - Reasonable because pet care tasks are inherently pet-specific. You can't give dog medication to a cat, or walk a parakeet in place of a dog. Each pet is different and has their own needs.
 
 ## 3. AI Collaboration
@@ -95,6 +96,7 @@ b.
 - When I visited Phase 2 of the project requirements, I noticed that there should be a way for the owner to view all the tasks for pets. I revisited my earlier project designs and created a get_all_tasks() method which would take in a pet name, and then it would check the owner's own pet list and see if the name exists, and if so, fetch the tasks.
 - I noticed that the class function didn't seem to account for pet's condition. I changed pet's condition variable to be a list of strings.
 - Added in scheduler to skip tasks given a certain condition, but if there is a task like say "sick" then medication should absolutely be done.
+- When I was implementing the pairwise detection algorithm that checked conflicting schedules, I noticed that the AI's suggestion only worked in the context there was one conflict at a time. So when I tested adding multiple conflicting tasks throughout each pet, if I resolved one conflict, it would automatcially assume the rest were resolved, so I changed the detection algorithm to resolve conflicts based on indices.
 
 ## 4. Testing and Verification
 
@@ -102,6 +104,9 @@ b.
 
 - What behaviors did you test?
 - Why were these tests important?
+
+- I should add a notification if a task is replaced by a higher-priority task or if it couldn't be added on account of time budget constraints.
+- Account for time conflicts.
 
 **b. Confidence**
 

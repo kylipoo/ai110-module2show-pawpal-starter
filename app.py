@@ -1,7 +1,7 @@
 import streamlit as st
 from pawpal_system import Owner, Pet, Task, Scheduler
 
-CONDITION_OPTIONS = ["healthy", "injured", "sick", "elderly", "pregnant"]
+CONDITION_OPTIONS = ["healthy", "injured", "sick", "elderly", "pregnant", "clean"]
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 st.title("🐾 PawPal+")
@@ -190,51 +190,152 @@ st.divider()
 # ── Tasks for selected pet ────────────────────────────────────────────────────
 st.subheader(f"Tasks for {pet.name}")
 
+st.markdown(
+    "<style>small.st-emotion-cache-ue6h4q { display: none; }</style>",
+    unsafe_allow_html=True,
+)
+
 with st.expander("Add a Task"):
+    # Compute which categories are blocked by this pet's current conditions
+    _blocked = set()
+    for _cond in pet.condition:
+        _blocked.update(Scheduler.CONDITION_BLOCKS.get(_cond, []))
+    _all_categories = ["walk", "feed", "medication", "grooming", "play", "other"]
+    available_categories = [c for c in _all_categories if c not in _blocked]
+
+    if _blocked:
+        st.caption(f"Blocked for {pet.name}'s conditions: {', '.join(sorted(_blocked))}")
+
     with st.form("add_task_form", clear_on_submit=True):
         t_col1, t_col2, t_col3 = st.columns(3)
         with t_col1:
-            task_name = st.text_input("Task name", value="Morning walk")
+            task_name = st.text_input("Task name", placeholder="e.g. Morning walk")
         with t_col2:
-            duration = st.number_input("Duration (min)", min_value=1, max_value=240, value=20)
+            duration = st.number_input("Duration (min)", min_value=1, max_value=240, value=None, placeholder="20")
         with t_col3:
-            priority = st.selectbox("Priority (1=high)", [1, 2, 3, 4, 5], index=1)
+            priority = st.selectbox("Priority (1=high)", [1, 2, 3, 4, 5], index=None, placeholder="Select priority")
 
         t_col4, t_col5 = st.columns(2)
         with t_col4:
-            due_time = st.text_input("Due time", value="8:00 AM")
+            due_time = st.text_input("Due time", placeholder="e.g. 8:00 AM")
         with t_col5:
-            category = st.selectbox("Category", ["walk", "feed", "medication", "grooming", "play", "other"])
+            category = st.selectbox("Category", available_categories, index=None, placeholder="Select category")
 
-        description = st.text_input("Description", value="")
+        description = st.text_input("Description", placeholder="Optional")
 
         submitted = st.form_submit_button("Add Task")
         if submitted:
-            new_task = Task(
-                name=task_name,
-                description=description,
-                due_time=due_time,
-                duration=int(duration),
-                priority=priority,
-                category=category,
-            )
-            pet.add_task(new_task)
-            st.success(f"Added: {new_task}")
-            st.rerun()
+            if not task_name.strip():
+                st.warning("Please enter a task name.")
+            else:
+                new_task = Task(
+                    name=task_name.strip(),
+                    description=description,
+                    due_time=due_time or "",
+                    duration=int(duration) if duration else 1,
+                    priority=priority if priority else 2,
+                    category=category if category else "other",
+                )
+                pet.add_task(new_task)
+                conflicts = Scheduler().detect_conflicts(owner)
+                if conflicts:
+                    st.session_state["task_conflicts"] = [
+                        {
+                            "pet_a": pa.name, "task_a": ta.name, "time": ta.due_time,
+                            "pet_b": pb.name, "task_b": tb.name,
+                        }
+                        for pa, ta, pb, tb in conflicts
+                    ]
+                st.rerun()
+
+if "task_conflicts" in st.session_state:
+    for i, c in enumerate(st.session_state["task_conflicts"]):
+        st.warning(
+            f"Time conflict at {c['time']}: **{c['task_a']}** ({c['pet_a']}) "
+            f"and **{c['task_b']}** ({c['pet_b']})"
+        )
+        col_a, col_b, col_dismiss = st.columns(3)
+        with col_a:
+            if st.button(f"Drop '{c['task_a']}'", key=f"drop_a_{i}"):
+                for p in owner.pets:
+                    if p.name == c["pet_a"]:
+                        p.tasks = [t for t in p.tasks if not (t.name == c["task_a"] and t.due_time == c["time"])]
+                st.session_state["task_conflicts"].pop(i)
+                if not st.session_state["task_conflicts"]:
+                    st.session_state.pop("task_conflicts")
+                st.rerun()
+        with col_b:
+            if st.button(f"Drop '{c['task_b']}'", key=f"drop_b_{i}"):
+                for p in owner.pets:
+                    if p.name == c["pet_b"]:
+                        p.tasks = [t for t in p.tasks if not (t.name == c["task_b"] and t.due_time == c["time"])]
+                st.session_state["task_conflicts"].pop(i)
+                if not st.session_state["task_conflicts"]:
+                    st.session_state.pop("task_conflicts")
+                st.rerun()
+        with col_dismiss:
+            if st.button("Keep both", key=f"dismiss_{i}"):
+                st.session_state["task_conflicts"].pop(i)
+                if not st.session_state["task_conflicts"]:
+                    st.session_state.pop("task_conflicts")
+                st.rerun()
 
 all_tasks = pet.get_all_tasks()
 if all_tasks:
     for i, t in enumerate(all_tasks):
-        col_info, col_btn = st.columns([5, 1])
+        task_edit_key = f"editing_task_{idx}_{pet.name}_{i}"
+        col_info, col_edit, col_remove = st.columns([4, 1, 1])
         with col_info:
             st.markdown(
                 f"**{t.name}** — {t.category} | Due: {t.due_time} | "
                 f"{t.duration} min | Priority: {t.priority} | "
                 f"{'~~Done~~' if t.completed else 'Pending'}"
             )
-        with col_btn:
+        with col_edit:
+            if st.button("Edit", key=f"edit_task_btn_{idx}_{pet.name}_{i}"):
+                st.session_state[task_edit_key] = True
+        with col_remove:
             if st.button("Remove", key=f"remove_task_{idx}_{pet.name}_{i}"):
                 pet.remove_task(t)
+                st.rerun()
+
+        if st.session_state.get(task_edit_key):
+            with st.form(f"edit_task_form_{idx}_{pet.name}_{i}"):
+                et_col1, et_col2, et_col3 = st.columns(3)
+                with et_col1:
+                    updated_task_name = st.text_input("Task name", value=t.name)
+                with et_col2:
+                    updated_duration = st.number_input("Duration (min)", min_value=1, max_value=240, value=t.duration)
+                with et_col3:
+                    updated_priority = st.selectbox("Priority (1=high)", [1, 2, 3, 4, 5], index=t.priority - 1)
+
+                et_col4, et_col5 = st.columns(2)
+                with et_col4:
+                    updated_due_time = st.text_input("Due time", value=t.due_time)
+                with et_col5:
+                    _all_categories = ["walk", "feed", "medication", "grooming", "play", "other"]
+                    cat_index = _all_categories.index(t.category) if t.category in _all_categories else 5
+                    updated_category = st.selectbox("Category", _all_categories, index=cat_index)
+
+                updated_description = st.text_input("Description", value=t.description)
+
+                et_save, et_cancel = st.columns(2)
+                with et_save:
+                    save_task = st.form_submit_button("Save")
+                with et_cancel:
+                    cancel_task = st.form_submit_button("Cancel")
+
+            if save_task:
+                t.name = updated_task_name.strip() or t.name
+                t.duration = int(updated_duration)
+                t.priority = updated_priority
+                t.due_time = updated_due_time
+                t.category = updated_category
+                t.description = updated_description
+                st.session_state[task_edit_key] = False
+                st.rerun()
+            if cancel_task:
+                st.session_state[task_edit_key] = False
                 st.rerun()
 else:
     st.info("No tasks yet. Add one above.")

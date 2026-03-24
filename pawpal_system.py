@@ -1,3 +1,7 @@
+import re
+
+
+
 class Task:
     def __init__(self, name: str, description: str, due_time: str, duration: int, priority: int, category: str):
         self.name = name
@@ -26,6 +30,8 @@ class Pet:
         self.tasks: list[Task] = []
 
     def add_task(self, task: Task):
+        if any(t.name == task.name for t in self.tasks):
+            return
         self.tasks.append(task)
 
     def remove_task(self, task: Task):
@@ -79,6 +85,28 @@ class Scheduler:
     def __init__(self):
         self.remaining_time = 0
 
+    def sort_by_time(self, tasks: list) -> list:
+        """Return a new list of Task objects sorted by due_time (earliest first).
+        Tasks with no parseable time float to the end."""
+        def _parse_due_time(due_time: str) -> int:
+            if not due_time:
+                return 9999
+            s = due_time.strip()
+            m = re.match(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', s, re.IGNORECASE)
+            if m:
+                h, mn, period = int(m.group(1)), int(m.group(2)), m.group(3).upper()
+                if period == 'PM' and h != 12:
+                    h += 12
+                elif period == 'AM' and h == 12:
+                    h = 0
+                return h * 60 + mn
+            m = re.match(r'^(\d{1,2}):(\d{2})$', s)
+            if m:
+                return int(m.group(1)) * 60 + int(m.group(2))
+            return 9999
+
+        return sorted(tasks, key=lambda t: _parse_due_time(t.due_time))
+
     def generate_daily_plan(self, owner: Owner) -> list[dict]:
         """
         Collect all incomplete, feasible tasks across owner's pets,
@@ -100,6 +128,10 @@ class Scheduler:
 
         scheduled = self._fit_to_time(candidates, owner.time_available)
 
+        # Sort the final scheduled list by due_time so the plan reads chronologically
+        sorted_tasks = self.sort_by_time([t for _, t in scheduled])
+        scheduled = sorted(scheduled, key=lambda pair: sorted_tasks.index(pair[1]))
+
         plan = []
         for pet, task in scheduled:
             plan.append({
@@ -117,8 +149,9 @@ class Scheduler:
     CONDITION_BLOCKS: dict[str, list[str]] = {
         "injured":  ["walk"],
         "sick":     ["walk", "play"],
-        "elderly":  ["play"],
+        "elderly":  ["walk", "play"],
         "pregnant": ["walk", "play"],
+        "clean":    ["grooming"],
     }
 
     def _is_feasible(self, task: Task, pet: Pet, owner: Owner) -> bool:
@@ -149,6 +182,45 @@ class Scheduler:
         if "sick" in pet.condition and task.category == "medication":
             return 1
         return task.priority
+
+    def detect_conflicts(self, owner: Owner) -> list[tuple]:
+        """
+        Check all tasks across every pet for the same owner.
+        Returns a list of (pet_a, task_a, pet_b, task_b) tuples where
+        both tasks share the same parsed due_time (same minute of day).
+        Skips tasks with no parseable due_time.
+        """
+        def _parse_due_time(due_time: str) -> int:
+            if not due_time:
+                return 9999
+            s = due_time.strip()
+            m = re.match(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', s, re.IGNORECASE)
+            if m:
+                h, mn, period = int(m.group(1)), int(m.group(2)), m.group(3).upper()
+                if period == 'PM' and h != 12:
+                    h += 12
+                elif period == 'AM' and h == 12:
+                    h = 0
+                return h * 60 + mn
+            m = re.match(r'^(\d{1,2}):(\d{2})$', s)
+            if m:
+                return int(m.group(1)) * 60 + int(m.group(2))
+            return 9999
+
+        all_pairs = [
+            (pet, task)
+            for pet in owner.pets
+            for task in pet.tasks
+            if _parse_due_time(task.due_time) != 9999
+        ]
+        conflicts = []
+        for i in range(len(all_pairs)):
+            for j in range(i + 1, len(all_pairs)):
+                pet_a, task_a = all_pairs[i]
+                pet_b, task_b = all_pairs[j]
+                if _parse_due_time(task_a.due_time) == _parse_due_time(task_b.due_time):
+                    conflicts.append((pet_a, task_a, pet_b, task_b))
+        return conflicts
 
     def reset_tasks(self, owner: Owner):
         """Remove all tasks from every pet belonging to this owner."""
