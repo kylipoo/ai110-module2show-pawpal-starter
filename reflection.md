@@ -105,8 +105,13 @@ b.
 - What behaviors did you test?
 - Why were these tests important?
 
-- I should add a notification if a task is replaced by a higher-priority task or if it couldn't be added on account of time budget constraints.
-- Account for time conflicts.
+- I tested the following:
+  - Adding tasks with due times out of order.
+    - Is important because the point of pawpal is that it can create an accurate daily planner for the owner who has passed in the tasks they want done and when to do it.
+  - Conflicting due times.
+    - Is important because it helps the owner with double checking if they've already reserved some time for another pet.
+  - Checking if the owner's time budget has been exhausted.
+    - My interpretation of the project had it the owner would keep track of how much time they had for the day, and that the daily plan function should budget within that amount.
 
 **b. Confidence**
 
@@ -115,16 +120,24 @@ b.
 
 ---
 
+- I am very confident that my scheduler works correctly. From my tests, it is able to fit in tasks based on what the owner's provided time budget, sort based on the due time and account for when due time overlaps for tasks.
+- I would test what would happen if the owner's time budget was small and every single one of the tasks exceeds that budget. Does it return an empty schedule?
+
 ## 5. Reflection
 
 **a. What went well**
 
 - What part of this project are you most satisfied with?
+- The UML diagram design. While it is true that I made a couple of revisions to class methods, I felt that having a basic framework of the relations between each class significantly helped me with drafting a functional application.
+  - I felt I used codepath resources very well, attending study hall sessions.
+- I am also satisfied with implementing the "greedy" part of Pawpal's scheduler. Upon doing some tests, it was able to retrieve and organize a list of tasks based on priority while also sticking within time budget limits.
 
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
+- I would add a more robust long-term planning system where the owner can set up multiple schedules for future dates, all also with the same edit tasks options in case any sudden changes happen in their routines.
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+- I shouldn't immediately start into coding, I should approach projects with a plan and outline in mind.
