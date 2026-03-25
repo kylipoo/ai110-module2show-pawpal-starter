@@ -88,16 +88,16 @@ def test_generate_daily_plan_respects_time_budget():
     print("Planned tasks:", task_names)
     assert "Morning Walk" in task_names
 
-# ── Test 5: Owner time budget exhausted ───────────────────────────────────────
+# ── Test 6: Greedy approach, fill up the time budget best possible. ───────────────────────────────────────
 
 def test_empty_plan_when_time_budget_exhausted():
     scheduler = Scheduler()
     owner = Owner("Alice", 30)  # only 30 minutes available
     pet = Pet("Buddy", "dog", 3, "Alice")
 
-    pet.add_task(Task("Morning Walk", "Walk", "8:00 AM", 35, 1, "walk"))
-    pet.add_task(Task("Grooming", "Brush coat", "9:00 AM", 40, 2, "grooming"))
-    pet.add_task(Task("Playtime", "Fetch", "10:00 AM", 60, 3, "play"))
+    pet.add_task(Task("Morning Walk", "Walk", "8:00 AM", 20, 1, "walk"))
+    pet.add_task(Task("Grooming", "Brush coat", "9:00 AM", 40, 1, "grooming"))
+    pet.add_task(Task("Playtime", "Fetch", "10:00 AM", 10, 3, "play"))
     owner.register_pet(pet)
 
     plan = scheduler.generate_daily_plan(owner)
@@ -105,4 +105,4 @@ def test_empty_plan_when_time_budget_exhausted():
     assert total_duration <= 30
     # Highest priority task (Morning Walk, priority=1) must be included
     task_names = [entry["task"] for entry in plan]
-    assert len(task_names) == 0
+    assert len(task_names) == 2

@@ -130,7 +130,7 @@ b.
 - What part of this project are you most satisfied with?
 - The UML diagram design. While it is true that I made a couple of revisions to class methods, I felt that having a basic framework of the relations between each class significantly helped me with drafting a functional application.
   - I felt I used codepath resources very well, attending study hall sessions.
-- I am also satisfied with implementing the "greedy" part of Pawpal's scheduler. Upon doing some tests, it was able to retrieve and organize a list of tasks based on priority while also sticking within time budget limits.
+- I am also satisfied with implementing the "greedy" part of Pawpal's scheduler. Upon doing some tests, it was able to simultaneously retrieve and organize a list of tasks based on priority while using the time budget to its fullest as best possible.
 
 **b. What you would improve**
 
