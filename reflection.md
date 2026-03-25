@@ -49,6 +49,9 @@ a.
 b.
 
 - My design originally had 5 classes, with an additional daily plan. However, I decided against creating a whole other class when my Scheduler class could just as easily have a method to return the daily plan list.
+- Added a detect_conflicts class to the scheduler class. For every task added for the pet, it will scan through the rest of their own task list and see if there's any overlapping due time.
+- Added a CONDITION_BLOCKS attribute to the scheduler class. It takes into account the pet's condition through the following: If they are sick, injured or elderly, then walking and playing should not be options (in no condition). If the pet is clean, do not have the option to groom (is redundant).
+- Here is my finalized class diagram: ![alt text](<Screenshot 2026-03-24 at 4.19.29 PM.jpg>)
 
 ## 2. Scheduling Logic and Tradeoffs
 
@@ -120,8 +123,9 @@ b.
 
 ---
 
-- I am very confident that my scheduler works correctly. From my tests, it is able to fit in tasks based on what the owner's provided time budget, sort based on the due time and account for when due time overlaps for tasks.
+- I am very confident that my scheduler works correctly. From my tests, it is able to fit in tasks based on what the owner's provided time budget, sort based on the due time and account for when due time overlaps for tasks (an edge case).
 - I would test what would happen if the owner's time budget was small and every single one of the tasks exceeds that budget. Does it return an empty schedule?
+- This also goes into things to improve, but I'd like to address situations if multiple pets can have their tasks being done at the same time, like say I have 3 dogs? I can walk all three of them together. For now I just gave the task to one pet and made the description say "Is jointly walking with other pets".
 
 ## 5. Reflection
 
@@ -136,8 +140,9 @@ b.
 
 - If you had another iteration, what would you improve or redesign?
 - I would add a more robust long-term planning system where the owner can set up multiple schedules for future dates, all also with the same edit tasks options in case any sudden changes happen in their routines.
+- Also I briefly touched upon it with the condition object, but I would love to look for a more dynamic option when it comes to filtering available tasks based on pet's condition.
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
-- I shouldn't immediately start into coding, I should approach projects with a plan and outline in mind.
+- I shouldn't immediately start into coding, I should approach projects with a plan. I should apply this approach of drawing a UML diagram or any other workflow before moving forward on any work assignment in the future.

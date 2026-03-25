@@ -78,6 +78,7 @@ pip install -r requirements.txt
    2. test_generate_daily_plan_with_no_tasks(): Tests that the if the pet has no tasks when creating a daily plan, no daily plan is printed out.
    3. test_detect_conflicts_two_pets_same_time(): Checks if the owner has made two tasks for pets that have the same due time.
    4. test_generate_daily_plan_respects_time_budget(): Verifies that the owner does not add tasks that go over the budgeted time.
+2. To run these tests, do python3 -m pytest tests/test_pawpal.py
 
 ### Running the app
 
