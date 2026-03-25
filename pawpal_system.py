@@ -1,54 +1,242 @@
-from dataclasses import dataclass, field
-from typing import Optional
+import re
 
 
-@dataclass
+
 class Task:
-    name: str
-    duration: int  # minutes
-    priority: int  # e.g. 1 (highest) to 5 (lowest)
-    category: str  # e.g. "walk", "feeding", "meds", "grooming", "enrichment"
+    def __init__(self, name: str, description: str, due_time: str, duration: int, priority: int, category: str):
+        self.name = name
+        self.description = description   # human-readable details about the task
+        self.due_time = due_time         # e.g. "8:00 AM"
+        self.duration = duration         # in minutes
+        self.priority = priority         # 1 (highest) to 5 (lowest)
+        self.category = category         # e.g. "walk", "feed", "medication"
+        self.completed = False
+
+    def mark_complete(self):
+        self.completed = True
+
+    def __repr__(self):
+        status = "done" if self.completed else "pending"
+        return f"Task({self.name!r}, due={self.due_time}, {self.duration}min, priority={self.priority}, [{status}])"
 
 
 class Pet:
-    def __init__(self, name: str, species: str, age: int, owner_name: str, condition: Optional[str] = None):
+    def __init__(self, name: str, species: str, age: int, owner_name: str, condition: list[str] = None):
         self.name = name
         self.species = species
         self.age = age
         self.owner_name = owner_name
-        self.condition = condition
+        self.condition = condition if condition is not None else ["healthy"]
         self.tasks: list[Task] = []
 
-    def add_task(self, task: Task) -> None:
-        pass
+    def add_task(self, task: Task):
+        if any(t.name == task.name for t in self.tasks):
+            return
+        self.tasks.append(task)
 
-    def remove_task(self, task_name: str) -> None:
-        pass
+    def remove_task(self, task: Task):
+        if task in self.tasks:
+            self.tasks.remove(task)
 
-    def edit_task(self, task_name: str, **updates) -> None:
-        pass
+    def edit_task(self, task: Task, duration: int = None, priority: int = None):
+        for t in self.tasks:
+            if t is task:
+                if duration is not None:
+                    t.duration = duration
+                if priority is not None:
+                    t.priority = priority
+                return
+        raise ValueError(f"Task {task.name!r} not found in {self.name}'s task list.")
+
+    def get_all_tasks(self) -> list[Task]:
+        return list(self.tasks)
+
+    def __repr__(self):
+        return f"Pet({self.name!r}, {self.species}, age={self.age}, conditions={self.condition})"
 
 
 class Owner:
-    def __init__(self, name: str, time_available: int, preferences: Optional[dict] = None):
+    def __init__(self, name: str, time_available: int, preferences: dict = None):
         self.name = name
-        self.time_available = time_available  # minutes per day
-        self.preferences = preferences or {}
+        self.time_available = time_available  # total minutes available per day
+        self.preferences = preferences or {}  # e.g. {"avoid_category": "walk", "max_priority": 3}
         self.pets: list[Pet] = []
 
-    def register_pet(self, pet: Pet) -> None:
-        pass
+    def register_pet(self, pet: Pet):
+        self.pets.append(pet)
 
-    def remove_pet(self, pet_name: str) -> None:
-        pass
+    def remove_pet(self, pet: Pet):
+        if pet in self.pets:
+            self.pets.remove(pet)
+
+    def get_all_tasks(self) -> list[tuple[Pet, Task]]:
+        """Returns all (pet, task) pairs across every pet this owner has."""
+        result = []
+        for pet in self.pets:
+            for task in pet.get_all_tasks():
+                result.append((pet, task))
+        return result
+
+    def __repr__(self):
+        return f"Owner({self.name!r}, time_available={self.time_available}min, pets={len(self.pets)})"
 
 
 class Scheduler:
-    def generate_daily(self, owner: Owner, pet: Pet) -> list[Task]:
-        pass
+    def __init__(self):
+        self.remaining_time = 0
 
-    def _is_feasible(self, tasks: list[Task], time_available: int) -> bool:
-        pass
+    def sort_by_time(self, tasks: list) -> list:
+        """Return a new list of Task objects sorted by due_time (earliest first).
+        Tasks with no parseable time float to the end."""
+        def _parse_due_time(due_time: str) -> int:
+            if not due_time:
+                return 9999
+            s = due_time.strip()
+            m = re.match(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', s, re.IGNORECASE)
+            if m:
+                h, mn, period = int(m.group(1)), int(m.group(2)), m.group(3).upper()
+                if period == 'PM' and h != 12:
+                    h += 12
+                elif period == 'AM' and h == 12:
+                    h = 0
+                return h * 60 + mn
+            m = re.match(r'^(\d{1,2}):(\d{2})$', s)
+            if m:
+                return int(m.group(1)) * 60 + int(m.group(2))
+            return 9999
 
-    def _fit_to_time(self, tasks: list[Task], time_available: int) -> list[Task]:
-        pass
+        return sorted(tasks, key=lambda t: _parse_due_time(t.due_time))
+
+    def generate_daily_plan(self, owner: Owner) -> list[dict]:
+        """
+        Collect all incomplete, feasible tasks across owner's pets,
+        sort by priority, then fit within the owner's available time.
+        Returns a list of dicts describing the scheduled tasks.
+        """
+        self.remaining_time = owner.time_available
+
+        all_pairs = owner.get_all_tasks()
+
+        # Filter to incomplete and feasible tasks only
+        candidates = [
+            (pet, task) for pet, task in all_pairs
+            if not task.completed and self._is_feasible(task, pet, owner)
+        ]
+
+        # Sort by adjusted priority (conditions can boost certain task categories)
+        candidates.sort(key=lambda pair: self._adjusted_priority(pair[1], pair[0]))
+
+        scheduled = self._fit_to_time(candidates, owner.time_available)
+
+        # Sort the final scheduled list by due_time so the plan reads chronologically
+        sorted_tasks = self.sort_by_time([t for _, t in scheduled])
+        scheduled = sorted(scheduled, key=lambda pair: sorted_tasks.index(pair[1]))
+
+        plan = []
+        for pet, task in scheduled:
+            plan.append({
+                "pet": pet.name,
+                "task": task.name,
+                "description": task.description,
+                "due_time": task.due_time,
+                "category": task.category,
+                "duration": task.duration,
+                "priority": task.priority,
+            })
+        return plan
+
+    # Maps each condition to the task categories it blocks
+    CONDITION_BLOCKS: dict[str, list[str]] = {
+        "injured":  ["walk"],
+        "sick":     ["walk", "play"],
+        "elderly":  ["walk", "play"],
+        "pregnant": ["walk", "play"],
+        "clean":    ["grooming"],
+    }
+
+    def _is_feasible(self, task: Task, pet: Pet, owner: Owner) -> bool:
+        """
+        Returns False if the owner's preferences exclude this task, or a pet
+        condition blocks it.
+        """
+        avoid = owner.preferences.get("avoid_category")
+        if avoid and task.category == avoid:
+            return False
+
+        max_priority = owner.preferences.get("max_priority")
+        if max_priority and task.priority > max_priority:
+            return False
+
+        for condition in pet.condition:
+            blocked = self.CONDITION_BLOCKS.get(condition, [])
+            if task.category in blocked:
+                return False
+
+        return True
+
+    def _adjusted_priority(self, task: Task, pet: Pet) -> int:
+        """
+        Returns an effective priority for sorting. Medication tasks are boosted
+        to priority 1 when the pet is sick, so they always schedule first.
+        """
+        if "sick" in pet.condition and task.category == "medication":
+            return 1
+        return task.priority
+
+    def detect_conflicts(self, owner: Owner) -> list[tuple]:
+        """
+        Check all tasks across every pet for the same owner.
+        Returns a list of (pet_a, task_a, pet_b, task_b) tuples where
+        both tasks share the same parsed due_time (same minute of day).
+        Skips tasks with no parseable due_time.
+        """
+        def _parse_due_time(due_time: str) -> int:
+            if not due_time:
+                return 9999
+            s = due_time.strip()
+            m = re.match(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', s, re.IGNORECASE)
+            if m:
+                h, mn, period = int(m.group(1)), int(m.group(2)), m.group(3).upper()
+                if period == 'PM' and h != 12:
+                    h += 12
+                elif period == 'AM' and h == 12:
+                    h = 0
+                return h * 60 + mn
+            m = re.match(r'^(\d{1,2}):(\d{2})$', s)
+            if m:
+                return int(m.group(1)) * 60 + int(m.group(2))
+            return 9999
+
+        all_pairs = [
+            (pet, task)
+            for pet in owner.pets
+            for task in pet.tasks
+            if _parse_due_time(task.due_time) != 9999
+        ]
+        conflicts = []
+        for i in range(len(all_pairs)):
+            for j in range(i + 1, len(all_pairs)):
+                pet_a, task_a = all_pairs[i]
+                pet_b, task_b = all_pairs[j]
+                if _parse_due_time(task_a.due_time) == _parse_due_time(task_b.due_time):
+                    conflicts.append((pet_a, task_a, pet_b, task_b))
+        return conflicts
+
+    def reset_tasks(self, owner: Owner):
+        """Remove all tasks from every pet belonging to this owner."""
+        for pet in owner.pets:
+            pet.tasks.clear()
+
+    def _fit_to_time(self, candidates: list[tuple[Pet, Task]], time_available: int) -> list[tuple[Pet, Task]]:
+        """
+        Greedily select tasks from the (already sorted) candidate list
+        until the owner's available time is exhausted.
+        """
+        scheduled = []
+        remaining = time_available
+        for pet, task in candidates:
+            if task.duration <= remaining:
+                scheduled.append((pet, task))
+                remaining -= task.duration
+        self.remaining_time = remaining
+        return scheduled
