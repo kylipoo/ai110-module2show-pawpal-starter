@@ -101,3 +101,17 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+### Demo
+
+1. A walkthrough of the pet scheduler:
+   1. ![alt text](SchedulerDemo.gif)
+2. Time conflict detection algorithm demo:
+   1. ![alt text](<Time Conflict Detect.gif>)
+3. Sort pet tasks based on due time:
+   1. ![alt text](SortingAlgorithm.gif)
+4. Exclude task categorise based on condition:
+   1. ![alt text](<FilterPetBasedOn Condition.gif>)
+5. Scheduling based on priority (Greedy algorithm):
+   1. Will choose the higher priority task even if it takes up all the time.
+   2. ![alt text](GreedyPriority.gif)
